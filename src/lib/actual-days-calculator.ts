@@ -83,29 +83,91 @@ export async function calculateActualDaysForSprint(
   const issues = await cycle.issues();
   console.log(`Found ${issues.nodes.length} issues in cycle`);
 
-  // 6. Calculate actual days for each issue
-  const issueActuals: IssueActualDays[] = [];
+  // 6. Build issue timelines with assignees
+  const issueTimelines: Array<{
+    issueId: string;
+    identifier: string;
+    projectId: string | null;
+    assigneeId: string | null;
+    inProgressPeriods: Array<{ start: Date; end: Date | null }>;
+  }> = [];
 
   for (const issue of issues.nodes) {
     try {
-      const actualDays = await calculateIssueActualDays(
-        issue.id,
-        businessDays,
-        sprint.startDate,
-        sprint.endDate
+      const assignee = await issue.assignee;
+      const project = await issue.project;
+      const inProgressPeriods = await getIssueInProgressPeriods(issue.id);
+
+      issueTimelines.push({
+        issueId: issue.id,
+        identifier: issue.identifier,
+        projectId: project?.id || null,
+        assigneeId: assignee?.id || null,
+        inProgressPeriods,
+      });
+    } catch (error) {
+      console.error(`Error fetching timeline for issue ${issue.id}:`, error);
+    }
+  }
+
+  console.log(`Built timelines for ${issueTimelines.length} issues`);
+
+  // 7. Distribute time per engineer per day
+  const issueActuals: IssueActualDays[] = [];
+
+  // Group issues by assignee
+  const issuesByAssignee = new Map<string, typeof issueTimelines>();
+
+  for (const timeline of issueTimelines) {
+    if (!timeline.assigneeId) continue;
+
+    if (!issuesByAssignee.has(timeline.assigneeId)) {
+      issuesByAssignee.set(timeline.assigneeId, []);
+    }
+    issuesByAssignee.get(timeline.assigneeId)!.push(timeline);
+  }
+
+  console.log(`Distributing time across ${issuesByAssignee.size} engineers`);
+
+  // For each engineer, distribute their time across their active issues each day
+  for (const [assigneeId, assigneeIssues] of issuesByAssignee.entries()) {
+    const issueActualDays = new Map<string, number>();
+
+    for (const day of businessDays) {
+      // Find all issues this engineer had "In Progress" on this day
+      const activeIssues = assigneeIssues.filter(issue =>
+        issue.inProgressPeriods.some(period => {
+          const start = period.start;
+          const end = period.end || new Date();
+          return day >= start && day <= end;
+        })
       );
 
-      const project = await issue.project;
+      if (activeIssues.length === 0) continue;
 
-      issueActuals.push({
-        issueId: issue.id,
-        projectId: project?.id || null,
-        actualDays: actualDays * focusFactor, // Normalize by focus factor
-      });
+      // Distribute 1.0 day across all active issues
+      const timePerIssue = 1.0 / activeIssues.length;
 
-      console.log(`Issue ${issue.identifier}: ${actualDays.toFixed(2)} days (${(actualDays * focusFactor).toFixed(2)} normalized)`);
-    } catch (error) {
-      console.error(`Error calculating actuals for issue ${issue.id}:`, error);
+      for (const issue of activeIssues) {
+        const current = issueActualDays.get(issue.issueId) || 0;
+        issueActualDays.set(issue.issueId, current + timePerIssue);
+      }
+    }
+
+    // Create issue actuals with normalized time
+    for (const issue of assigneeIssues) {
+      const rawDays = issueActualDays.get(issue.issueId) || 0;
+      const normalizedDays = rawDays * focusFactor;
+
+      if (normalizedDays > 0) {
+        issueActuals.push({
+          issueId: issue.issueId,
+          projectId: issue.projectId,
+          actualDays: normalizedDays,
+        });
+
+        console.log(`Issue ${issue.identifier}: ${rawDays.toFixed(2)} days (${normalizedDays.toFixed(2)} normalized)`);
+      }
     }
   }
 
@@ -134,31 +196,19 @@ export async function calculateActualDaysForSprint(
 }
 
 /**
- * Calculate actual days for a single issue based on state history
+ * Get periods when an issue was "In Progress"
  */
-async function calculateIssueActualDays(
-  issueId: string,
-  businessDays: Date[],
-  sprintStart: string,
-  sprintEnd: string
-): Promise<number> {
+async function getIssueInProgressPeriods(
+  issueId: string
+): Promise<Array<{ start: Date; end: Date | null }>> {
   const client = getLinearClient();
   const issue = await client.issue(issueId);
-
-  // Get assignee
-  const assignee = await issue.assignee;
-  if (!assignee) {
-    return 0; // No assignee = no time tracked
-  }
 
   // Fetch state history
   const history = await issue.history({
     first: 200,
     orderBy: 'createdAt' as any,
   });
-
-  // Get current state
-  const currentState = await issue.state;
 
   // Build state timeline
   const transitions: Array<{ state: string; timestamp: Date }> = [];
@@ -207,23 +257,7 @@ async function calculateIssueActualDays(
     });
   }
 
-  // Count business days when issue was "In Progress"
-  let actualDays = 0;
-
-  for (const day of businessDays) {
-    const wasInProgress = inProgressPeriods.some(period => {
-      const start = period.start;
-      const end = period.end || new Date(); // If still in progress, use now
-
-      return day >= start && day <= end;
-    });
-
-    if (wasInProgress) {
-      actualDays += 1.0;
-    }
-  }
-
-  return actualDays;
+  return inProgressPeriods;
 }
 
 /**
