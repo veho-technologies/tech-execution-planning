@@ -33,15 +33,17 @@ A comprehensive capacity planning and execution tracking system with Linear inte
 
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes
-- **Database**: SQLite with better-sqlite3
+- **Database**: PostgreSQL with Kysely (type-safe query builder)
 - **Integrations**: Linear API SDK
 - **UI Components**: Lucide Icons, Recharts
+- **Infrastructure**: Docker for PostgreSQL
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+ installed
+- Docker and Docker Compose installed
 - Linear account with API access
 - Linear API key (get from https://linear.app/settings/api)
 
@@ -57,23 +59,40 @@ cd tech-execution-planning
 npm install
 ```
 
-3. Create environment file:
+3. Start PostgreSQL database:
 ```bash
-cp .env.example .env
+docker compose up -d
 ```
 
-4. Add your Linear API key to `.env`:
+4. Create environment file:
+```bash
+cp .env.example .env.local
+```
+
+5. Configure `.env.local` with your Linear API key and database settings:
 ```
 LINEAR_API_KEY=lin_api_xxxxxxxxxxxxxxxxxxxxxxxx
-DATABASE_PATH=./data/planner.db
+
+# PostgreSQL Database Configuration
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=capacity_planner
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_DISABLE_SSL=true
 ```
 
-5. Run the development server:
+6. Run database migrations:
+```bash
+npm run migrate
+```
+
+7. Run the development server:
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+8. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Usage Guide
 
@@ -142,7 +161,7 @@ npm run dev
 
 ## Database Schema
 
-The application uses SQLite with the following main tables:
+The application uses PostgreSQL with the following main tables:
 
 - **teams**: Team configuration and Linear integration
 - **quarters**: Quarter definitions with capacity parameters
@@ -215,9 +234,12 @@ src/
 │   ├── capacity/         # Capacity planning components
 │   └── execution/        # Execution planning components
 ├── lib/                   # Utility functions
-│   ├── db.ts             # Database connection and schema
+│   ├── database.ts       # Kysely database connection (PostgreSQL)
+│   ├── db.ts             # Database export (backward compatible)
 │   ├── linear.ts         # Linear API integration
 │   └── capacity.ts       # Capacity calculation utilities
+├── migrations/           # Database migrations
+└── scripts/              # Utility scripts (migration runner, etc.)
 └── types/                 # TypeScript type definitions
 ```
 
@@ -228,6 +250,41 @@ src/
 3. **Types**: Define TypeScript interfaces in `src/types/`
 4. **Components**: Create reusable components in `src/components/`
 5. **Pages**: Add new pages in `src/app/`
+
+### Database Management
+
+```bash
+# Run migrations
+npm run migrate
+
+# Rollback last migration
+npm run migrate:down
+
+# Regenerate TypeScript types from database schema
+npm run db:codegen
+
+# Backup database
+npm run db:backup
+
+# Restore database from backup
+npm run db:restore
+```
+
+### Docker Commands
+
+```bash
+# Start PostgreSQL
+docker compose up -d
+
+# Stop PostgreSQL
+docker compose down
+
+# View PostgreSQL logs
+docker compose logs postgres
+
+# Access PostgreSQL CLI
+docker exec -it capacity-planner-db psql -U postgres -d capacity_planner
+```
 
 ### Building for Production
 
@@ -244,9 +301,11 @@ npm start
 - Ensure Linear team IDs are correct
 
 ### Database Issues
-- Delete `data/planner.db` to reset database
-- Check file permissions on data directory
-- Verify SQLite is working: `npm run dev` should create database automatically
+- Ensure Docker is running: `docker compose ps`
+- Check PostgreSQL logs: `docker compose logs postgres`
+- Restart PostgreSQL: `docker compose restart postgres`
+- Reset database: Drop and recreate with `docker compose down -v && docker compose up -d && npm run migrate`
+- Verify connection: Check DATABASE_HOST, DATABASE_PORT, and credentials in `.env.local`
 
 ### Capacity Calculation Issues
 - Verify quarter dates are correct
