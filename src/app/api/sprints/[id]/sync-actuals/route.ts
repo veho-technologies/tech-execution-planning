@@ -23,6 +23,20 @@ export async function POST(
       );
     }
 
+    // Get Linear team ID from our team
+    const team = await db
+      .selectFrom('teams')
+      .select('linearTeamId')
+      .where('id', '=', teamId)
+      .executeTakeFirst();
+
+    if (!team || !team.linearTeamId) {
+      return NextResponse.json(
+        { error: 'Team not found or not linked to Linear' },
+        { status: 400 }
+      );
+    }
+
     // Get sprint details
     const sprint = await db
       .selectFrom('sprints')
@@ -50,16 +64,14 @@ export async function POST(
     console.log(`Focus factor: ${focusFactor}`);
 
     // Calculate actual days from Linear state history
-    const issueTimeEntries = await calculateActualDaysForSprint(
+    // This now fetches cycle issues and updates allocations internally
+    await calculateActualDaysForSprint(
       sprintId,
-      teamId,
+      team.linearTeamId,
       focusFactor
     );
 
-    console.log(`Calculated time for ${issueTimeEntries.size} engineers`);
-
-    // Update sprint_allocations table
-    await updateSprintAllocationsActualDays(sprintId, issueTimeEntries);
+    console.log(`Sync completed`);
 
     // Get updated allocations to return
     const updatedAllocations = await db
