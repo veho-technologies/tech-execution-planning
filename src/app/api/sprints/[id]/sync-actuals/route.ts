@@ -12,6 +12,17 @@ export async function POST(
   try {
     const sprintId = params.id;
 
+    // Get teamId from query params
+    const { searchParams } = new URL(request.url);
+    const teamId = searchParams.get('team_id');
+
+    if (!teamId) {
+      return NextResponse.json(
+        { error: 'team_id query parameter is required' },
+        { status: 400 }
+      );
+    }
+
     // Get sprint details
     const sprint = await db
       .selectFrom('sprints')
@@ -20,7 +31,6 @@ export async function POST(
         'sprints.id',
         'sprints.name',
         'sprints.quarterId',
-        'quarters.teamId',
         'quarters.meetingTimePercentage',
       ])
       .where('sprints.id', '=', sprintId)
@@ -42,7 +52,7 @@ export async function POST(
     // Calculate actual days from Linear state history
     const issueTimeEntries = await calculateActualDaysForSprint(
       sprintId,
-      sprint.teamId,
+      teamId,
       focusFactor
     );
 
@@ -57,7 +67,7 @@ export async function POST(
       .innerJoin('projects', 'projects.id', 'sprintAllocations.projectId')
       .select([
         'projects.id',
-        'projects.title',
+        'projects.linearIssueId',
         'sprintAllocations.actualDays',
       ])
       .where('sprintAllocations.sprintId', '=', sprintId)

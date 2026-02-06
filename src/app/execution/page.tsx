@@ -258,7 +258,7 @@ export default function ExecutionPage() {
       const results = await Promise.all(
         sprints.map(async (sprint) => {
           try {
-            const response = await fetch(`/api/sprints/${sprint.id}/sync-actuals`, {
+            const response = await fetch(`/api/sprints/${sprint.id}/sync-actuals?team_id=${selectedTeam.id}`, {
               method: 'POST',
             });
 

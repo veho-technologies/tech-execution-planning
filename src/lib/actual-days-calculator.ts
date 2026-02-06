@@ -41,11 +41,11 @@ export async function calculateActualDaysForSprint(
   // 2. Get holidays for this sprint
   const holidays = await db
     .selectFrom('holidays')
-    .select('date')
-    .where('quarter_id', '=', sprint.quarterId)
+    .select('holidayDate')
+    .where('quarterId', '=', sprint.quarterId)
     .execute();
 
-  const holidayDates = new Set(holidays.map(h => h.date));
+  const holidayDates = new Set(holidays.map(h => h.holidayDate));
 
   // 3. Get all business days in sprint (excluding weekends and holidays)
   const businessDays = getBusinessDays(
@@ -61,7 +61,6 @@ export async function calculateActualDaysForSprint(
     .select([
       'projects.id as projectId',
       'projects.linearIssueId',
-      'projects.title'
     ])
     .where('sprintAllocations.sprintId', '=', sprintId)
     .where('projects.linearIssueId', 'is not', null)
