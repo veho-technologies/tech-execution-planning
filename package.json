@@ -1,0 +1,51 @@
+{
+  "name": "tech-execution-planning",
+  "version": "1.0.0",
+  "description": "Tech Execution Planning - comprehensive capacity planning and execution tracking with Linear integration",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "migrate": "tsx src/scripts/migrate.ts",
+    "migrate:down": "tsx src/scripts/migrate.ts down",
+    "db:codegen": "export $(cat .env.local | grep -v '^#' | xargs) && kysely-codegen --config-file .kysely-codegenrc.json --out-file ./src/types/db.ts",
+    "db:backup": "bash scripts/backup-db.sh",
+    "db:restore": "bash scripts/restore-db.sh"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@linear/sdk": "^30.0.0",
+    "@tanstack/react-query": "^5.17.19",
+    "better-sqlite3": "^11.8.1",
+    "date-fns": "^3.2.0",
+    "dotenv": "^17.2.3",
+    "kysely": "^0.28.11",
+    "lucide-react": "^0.309.0",
+    "next": "14.1.0",
+    "pg": "^8.18.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.10.4",
+    "sqlite3": "^5.1.7",
+    "zod": "^3.22.4",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.9",
+    "@types/node": "^20",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.1.0",
+    "kysely-codegen": "^0.19.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
