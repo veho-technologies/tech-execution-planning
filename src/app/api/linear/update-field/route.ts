@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
       oldValueDisplay = oldValue ? `P${oldValue}` : 'None';
       newValueDisplay = newValue ? `P${newValue}` : 'None';
     } else if (fieldType === 'status') {
-      // For projects, use projectStatusId to update the custom status
-      updateData.projectStatusId = newValue;
+      // For projects, use statusId to update the custom status
+      updateData.statusId = newValue;
       fieldLabel = 'Status';
 
       // Look up status names from IDs
