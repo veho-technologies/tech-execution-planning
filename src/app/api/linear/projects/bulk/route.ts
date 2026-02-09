@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
           const lead = await project.lead;
           const projectStatus = await project.projectStatus;
 
+          console.log(`Fetched project ${project.name}: status=${projectStatus?.name || project.state}, statusId=${projectStatus?.id}`);
+
           return {
             id: project.id,
             name: project.name,
