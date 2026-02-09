@@ -1,0 +1,7 @@
+{
+  "dialect": "postgres",
+  "camelCase": true,
+  "logLevel": "warn",
+  "typeOnlyImports": true,
+  "singularize": false
+}

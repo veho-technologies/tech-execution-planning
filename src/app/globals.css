@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.health-indicator {
+  @apply inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold;
+}
+
+.health-G {
+  @apply bg-green-500 text-white;
+}
+
+.health-Y {
+  @apply bg-yellow-500 text-white;
+}
+
+.health-R {
+  @apply bg-red-500 text-white;
+}
+
+.priority-1 {
+  @apply text-red-600 font-bold;
+}
+
+.priority-2 {
+  @apply text-orange-600 font-semibold;
+}
+
+.priority-3 {
+  @apply text-yellow-600;
+}
+
+.priority-4 {
+  @apply text-blue-600;
+}
+
+.priority-5 {
+  @apply text-gray-600;
+}
+
+.over-capacity {
+  @apply bg-red-50 border-2 border-red-500;
+}
+
+.sprint-cell {
+  @apply border border-gray-300 p-1.5 min-w-[150px] text-sm;
+}
+
+.sprint-header {
+  @apply font-semibold bg-gray-100 border border-gray-300 p-1.5 min-w-[150px] text-xs text-center sticky top-0 z-10;
+}
+
+.metadata-cell {
+  @apply border border-gray-300 px-2 py-1 text-xs min-w-[60px] max-w-[100px];
+}
+
+.metadata-header {
+  @apply font-semibold bg-gray-100 border border-gray-300 px-2 py-1 text-xs text-center sticky top-0 z-10 min-w-[60px] max-w-[100px];
+}
+
+.project-name-cell {
+  @apply border border-gray-300 p-1.5 min-w-[200px] max-w-[300px] text-sm;
+}
+
+.project-row {
+  @apply border-b border-gray-200 hover:bg-gray-50;
+}
+
+.capacity-indicator {
+  @apply inline-flex items-center px-2 py-1 rounded text-xs font-medium;
+}
+
+.capacity-ok {
+  @apply bg-green-100 text-green-800;
+}
+
+.capacity-warning {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.capacity-over {
+  @apply bg-red-100 text-red-800;
+}
+
+.editable-cell {
+  @apply cursor-pointer hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
