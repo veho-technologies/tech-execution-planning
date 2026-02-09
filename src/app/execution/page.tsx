@@ -206,11 +206,18 @@ export default function ExecutionPage() {
         try {
           const linearRes = await fetch('/api/linear/projects/bulk', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectIds: linkedProjectIds }),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+            body: JSON.stringify({
+              projectIds: linkedProjectIds,
+              timestamp: Date.now() // Cache busting
+            }),
           });
           const linearDataMap = await linearRes.json();
-          console.log('Fetched Linear data for', Object.keys(linearDataMap).length, 'projects');
+          console.log('Fetched Linear data for', Object.keys(linearDataMap).length, 'projects at', new Date().toLocaleTimeString());
           setLinearData(linearDataMap);
         } catch (error) {
           console.error('Error fetching Linear project data:', error);

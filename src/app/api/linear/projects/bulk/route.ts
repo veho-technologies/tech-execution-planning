@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Fetching fresh data for ${projectIds.length} projects from Linear...`);
     const client = getLinearClient();
 
     // Fetch all projects
@@ -61,7 +62,14 @@ export async function POST(request: NextRequest) {
         return acc;
       }, {} as Record<string, any>);
 
-    return NextResponse.json(projectMap);
+    const response = NextResponse.json(projectMap);
+
+    // Disable caching to ensure fresh data
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+
+    return response;
   } catch (error) {
     console.error('Error fetching Linear projects:', error);
     return NextResponse.json(
