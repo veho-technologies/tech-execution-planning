@@ -111,7 +111,8 @@ export default function ProjectFieldUpdateModal({
         throw new Error(errorData.error || 'Failed to update field');
       }
 
-      onSave();
+      // Wait for data refresh before closing modal
+      await onSave();
       onClose();
     } catch (error: any) {
       console.error('Error updating field:', error);

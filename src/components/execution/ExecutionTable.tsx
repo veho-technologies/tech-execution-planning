@@ -838,6 +838,7 @@ export default function ExecutionTable({
           projectName={fieldModalOpen.projectData.title}
           fieldType={fieldModalOpen.fieldType}
           currentValue={fieldModalOpen.currentValue}
+          currentValueName={fieldModalOpen.currentValueName}
           teamId={team.linearTeamId}
           onClose={() => setFieldModalOpen(null)}
           onSave={async () => {
