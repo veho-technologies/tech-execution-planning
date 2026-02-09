@@ -27,11 +27,24 @@ export async function POST(request: NextRequest) {
       oldValueDisplay = oldValue ? `P${oldValue}` : 'None';
       newValueDisplay = newValue ? `P${newValue}` : 'None';
     } else if (fieldType === 'status') {
-      // For projects, state is a simple string field, not a state ID
-      updateData.state = newValue;
+      // For projects, use projectStatusId to update the custom status
+      updateData.projectStatusId = newValue;
       fieldLabel = 'Status';
-      oldValueDisplay = oldValue || 'Not set';
-      newValueDisplay = newValue;
+
+      // Look up status names from IDs
+      const newStatus = await client.projectStatus(newValue);
+      newValueDisplay = newStatus.name;
+
+      if (oldValue) {
+        try {
+          const oldStatus = await client.projectStatus(oldValue);
+          oldValueDisplay = oldStatus.name;
+        } catch {
+          oldValueDisplay = oldValue;
+        }
+      } else {
+        oldValueDisplay = 'Not set';
+      }
     }
 
     await client.updateProject(projectId, updateData);

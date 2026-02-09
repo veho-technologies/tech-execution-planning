@@ -146,7 +146,8 @@ function SortableProjectRow({
           project,
           projectData,
           fieldType: 'status',
-          currentValue: projectData.status,
+          currentValue: projectData.stateId || projectData.status,
+          currentValueName: projectData.status,
         })}
         title="Click to edit status"
       >

@@ -8,6 +8,7 @@ interface ProjectFieldUpdateModalProps {
   projectName: string;
   fieldType: 'priority' | 'status';
   currentValue: any;
+  currentValueName?: string;
   teamId: string;
   onClose: () => void;
   onSave: () => void;
@@ -18,6 +19,7 @@ export default function ProjectFieldUpdateModal({
   projectName,
   fieldType,
   currentValue,
+  currentValueName,
   teamId,
   onClose,
   onSave,
@@ -55,19 +57,19 @@ export default function ProjectFieldUpdateModal({
           console.log('Using', data.length, 'states from Linear');
           setAvailableStates(data);
         } else {
-          // No states found in Linear projects yet - allow manual entry
-          console.warn('No states found in Linear projects');
+          // No states found in Linear - allow manual entry
+          console.warn('No project statuses found in Linear');
           // Add current state as an option if it exists
-          const states = currentValue ? [{ id: currentValue.toLowerCase(), name: currentValue }] : [];
+          const states = currentValue && currentValueName ? [{ id: currentValue, name: currentValueName }] : [];
           setAvailableStates(states);
         }
       } else {
         throw new Error('Invalid response format');
       }
     } catch (error) {
-      console.error('Error fetching workflow states:', error);
+      console.error('Error fetching project statuses:', error);
       // On error, at least include the current state
-      const states = currentValue ? [{ id: currentValue.toLowerCase(), name: currentValue }] : [];
+      const states = currentValue && currentValueName ? [{ id: currentValue, name: currentValueName }] : [];
       setAvailableStates(states);
     } finally {
       setLoadingStates(false);
@@ -157,7 +159,7 @@ export default function ProjectFieldUpdateModal({
                 ? currentValue
                   ? `P${currentValue}`
                   : 'No Priority'
-                : currentValue || 'Not set'}
+                : currentValueName || currentValue || 'Not set'}
             </div>
           </div>
 
@@ -184,18 +186,21 @@ export default function ProjectFieldUpdateModal({
               <div>
                 <select
                   value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
+                  onChange={(e) => {
+                    const selectedState = availableStates.find(s => s.id === e.target.value);
+                    setNewValue(e.target.value);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select status...</option>
                   {availableStates.map(state => (
-                    <option key={state.id} value={state.name}>
+                    <option key={state.id} value={state.id}>
                       {state.name}
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {availableStates.length} state{availableStates.length !== 1 ? 's' : ''} from Linear projects
+                  {availableStates.length} status{availableStates.length !== 1 ? 'es' : ''} from Linear
                 </p>
               </div>
             ) : (
@@ -239,7 +244,7 @@ export default function ProjectFieldUpdateModal({
               {'\n'}
               {fieldType === 'priority'
                 ? `Priority: ${currentValue ? `P${currentValue}` : 'None'} → ${newValue !== '' ? `P${newValue}` : '...'}`
-                : `Status: ${currentValue || 'Not set'} → ${newValue || '...'}`}
+                : `Status: ${currentValueName || currentValue || 'Not set'} → ${newValue ? availableStates.find(s => s.id === newValue)?.name || '...' : '...'}`}
               {'\n'}
               Reason: {reason.trim() || '...'}
             </div>

@@ -14,19 +14,22 @@ export async function GET(request: NextRequest) {
     }
 
     const client = getLinearClient();
-    const team = await client.team(teamId);
-    const workflowStates = await team.states();
 
-    const states = workflowStates.nodes.map(state => ({
-      id: state.id,
-      name: state.name,
+    // Fetch project statuses for the organization (not team-specific workflow states)
+    const projectStatuses = await client.projectStatuses();
+
+    const statuses = projectStatuses.nodes.map(status => ({
+      id: status.id,
+      name: status.name,
+      description: status.description,
+      color: status.color,
     }));
 
-    return NextResponse.json(states);
+    return NextResponse.json(statuses);
   } catch (error: any) {
-    console.error('Error fetching workflow states:', error);
+    console.error('Error fetching project statuses:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch workflow states' },
+      { error: error.message || 'Failed to fetch project statuses' },
       { status: 500 }
     );
   }

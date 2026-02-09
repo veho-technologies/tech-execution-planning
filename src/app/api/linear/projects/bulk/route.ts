@@ -21,14 +21,14 @@ export async function POST(request: NextRequest) {
         try {
           const project = await client.project(id);
           const lead = await project.lead;
-          const state = await project.projectMilestone;
+          const projectStatus = await project.projectStatus;
 
           return {
             id: project.id,
             name: project.name,
             description: project.description,
-            state: project.state,
-            stateId: state?.id || null,
+            state: projectStatus?.name || project.state,
+            stateId: projectStatus?.id || null,
             priority: project.priority,
             targetDate: project.targetDate,
             startDate: project.startDate,
