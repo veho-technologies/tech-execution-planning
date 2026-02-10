@@ -477,7 +477,7 @@ export default function ExecutionPage() {
             >
               {quarters.map(quarter => (
                 <option key={quarter.id} value={quarter.id}>
-                  {quarter.name} ({quarter.startDate} to {quarter.endDate})
+                  {quarter.name}
                 </option>
               ))}
             </select>
@@ -495,7 +495,7 @@ export default function ExecutionPage() {
             >
               {teams.map(team => (
                 <option key={team.id} value={team.id}>
-                  {team.name} ({(team.totalEngineers || 0) - (team.ktloEngineers || 0)} engineers)
+                  {team.name}
                 </option>
               ))}
             </select>
