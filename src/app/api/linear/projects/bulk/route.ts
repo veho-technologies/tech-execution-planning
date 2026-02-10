@@ -22,15 +22,26 @@ export async function POST(request: NextRequest) {
         try {
           const project = await client.project(id);
           const lead = await project.lead;
-          const projectStatus = await project.projectStatus;
 
-          console.log(`Fetched project ${project.name}: status=${projectStatus?.name || project.state}, statusId=${projectStatus?.id}`);
+          // Try both status and projectStatus
+          let projectStatus = null;
+          try {
+            projectStatus = await project.status;
+          } catch (e) {
+            // Fallback to projectStatus if status doesn't exist
+            projectStatus = await project.projectStatus;
+          }
+
+          // Debug what we're getting
+          console.log(`\n--- Project: ${project.name} ---`);
+          console.log(`  project.state: ${project.state}`);
+          console.log(`  status: ${projectStatus ? JSON.stringify({id: projectStatus.id, name: projectStatus.name}) : 'null'}`);
 
           return {
             id: project.id,
             name: project.name,
             description: project.description,
-            state: projectStatus?.name || project.state,
+            state: projectStatus?.name || null, // Only show custom status, blank if none
             stateId: projectStatus?.id || null,
             priority: project.priority,
             targetDate: project.targetDate,
