@@ -137,14 +137,8 @@ export default function ExecutionPage() {
 
       console.log(`Filtered ${cyclesInQuarter.length} cycles for quarter ${selectedQuarter.name}`);
 
-      // Delete existing sprints for this quarter to ensure clean sync
-      try {
-        await fetch(`/api/sprints?quarter_id=${selectedQuarter.id}`, {
-          method: 'DELETE',
-        });
-      } catch (deleteError) {
-        console.error('Error deleting old sprints:', deleteError);
-      }
+      // IMPORTANT: Don't delete sprints - this would cascade delete all allocations!
+      // Instead, upsert (update if exists, insert if not) to preserve allocations
 
       // Sync cycles to database as sprints
       for (const cycle of cyclesInQuarter) {
@@ -153,11 +147,14 @@ export default function ExecutionPage() {
 
         try {
           // Use quarter-specific sprint ID to ensure cycles are unique per quarter
-          await fetch('/api/sprints', {
+          const sprintId = `sprint-${selectedQuarter.id}-${cycle.id}`;
+
+          // POST has upsert logic (insert or update if exists)
+          const response = await fetch('/api/sprints', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: `sprint-${selectedQuarter.id}-${cycle.id}`,
+              id: sprintId,
               quarter_id: selectedQuarter.id,
               name: cycleName,
               start_date: cycle.startsAt,
@@ -165,6 +162,10 @@ export default function ExecutionPage() {
               sprint_number: cycle.number,
             }),
           });
+
+          if (!response.ok) {
+            console.error(`Failed to sync cycle ${cycle.id}:`, await response.text());
+          }
         } catch (sprintError) {
           console.error(`Error syncing cycle ${cycle.id}:`, sprintError);
         }
