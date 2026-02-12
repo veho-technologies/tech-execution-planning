@@ -145,10 +145,12 @@ jobs:
   deploy-dev:
     docker:
       - image: cimg/node:22.14.0
-    resource_class: small
+    resource_class: medium
     steps:
       - checkout:
           method: blobless
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Setup NPM token
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
