@@ -152,6 +152,9 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
+          name: Setup QEMU for ARM64 builds
+          command: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - run:
           name: Setup NPM token
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
       - node/install-packages:
