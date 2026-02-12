@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["es2022"],
+    "strict": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "outDir": "cdk.out",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/main.ts", "src/stacks/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}
