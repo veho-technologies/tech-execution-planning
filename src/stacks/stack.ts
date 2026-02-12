@@ -11,6 +11,7 @@ import * as rds from 'aws-cdk-lib/aws-rds'
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { prefixList } from './config/prefixList'
 
 export interface DatabaseOptions {
   readonly adminUsername: string
@@ -87,6 +88,10 @@ export class AppStack extends VehoStack {
       description: 'Security group for Fargate service to access RDS Proxy',
     })
     proxy.connections.allowFrom(computeSg, ec2.Port.tcp(5432))
+
+    // Allow CircleCI IP ranges to access DB cluster directly (for migrations)
+    const cfnPrefixList = new ec2.CfnPrefixList(this, 'PrefixList', prefixList)
+    dbCluster.connections.allowFrom(ec2.Peer.prefixList(cfnPrefixList.attrPrefixListId), ec2.Port.tcp(5432))
 
     // ECS Cluster
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc })
