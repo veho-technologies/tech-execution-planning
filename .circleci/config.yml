@@ -194,6 +194,15 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          name: Clean up failed stack if needed
+          command: |
+            STACK_STATUS=$(aws cloudformation describe-stacks --stack-name tech-execution-planning-dev --region us-east-1 --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+            if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+              echo "Deleting ROLLBACK_COMPLETE stack..."
+              aws cloudformation delete-stack --stack-name tech-execution-planning-dev --region us-east-1
+              aws cloudformation wait stack-delete-complete --stack-name tech-execution-planning-dev --region us-east-1
+            fi
+      - run:
           name: Deploy VPN stack
           command: npx cdk deploy tech-execution-planning-dev-vpn --app cdk.out --require-approval never
           no_output_timeout: 30m
