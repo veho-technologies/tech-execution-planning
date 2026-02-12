@@ -1,0 +1,7 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["src/migrations/**", "src/stacks/**", "src/main.ts"],
+  "rules": {
+    "react/no-unescaped-entities": "warn"
+  }
+}
