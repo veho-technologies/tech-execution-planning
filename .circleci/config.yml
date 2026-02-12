@@ -204,7 +204,7 @@ jobs:
             fi
       - run:
           name: Deploy VPN stack
-          command: npx cdk deploy tech-execution-planning-dev-vpn --app cdk.out --require-approval never
+          command: npx cdk deploy tech-execution-planning-dev-vpn --app cdk.out --require-approval never --exclusively
           no_output_timeout: 30m
       - slack/notify:
           event: fail
@@ -232,7 +232,7 @@ jobs:
           at: .
       - run:
           name: Deploy DNS stack
-          command: npx cdk deploy tech-execution-planning-dev-dns --app cdk.out --require-approval never
+          command: npx cdk deploy tech-execution-planning-dev-dns --app cdk.out --require-approval never --exclusively
           no_output_timeout: 30m
       - slack/notify:
           event: fail
