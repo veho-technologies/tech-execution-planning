@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+docker-compose.yml
+.env*
+.DS_Store
+cdk.out
+.claude

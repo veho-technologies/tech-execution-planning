@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Database backups
 backups/
+
+# CDK
+cdk.out/

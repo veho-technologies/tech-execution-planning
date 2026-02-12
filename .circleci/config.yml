@@ -1,0 +1,463 @@
+version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@3.2.0
+  slack: circleci/slack@4.15.0
+  node: circleci/node@7.1.0
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: medium
+    environment:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - run:
+          name: Lint
+          command: npm run lint
+      - run:
+          name: Build
+          command: npm run build
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+  synth:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: medium
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::202836572542:role/CircleCI-OIDC
+      - run:
+          name: CDK Synthesis
+          command: npx cdk synth
+      - persist_to_workspace:
+          root: .
+          paths:
+            - cdk.out
+      - store_artifacts:
+          path: cdk.out
+
+  migrate-dev:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - run:
+          name: Set DB envvars
+          command: |
+            echo 'export DATABASE_HOST=$DEV_DATABASE_HOST' >> "$BASH_ENV"
+            echo 'export DATABASE_PASSWORD=$DEV_DATABASE_PASSWORD' >> "$BASH_ENV"
+            echo 'export DATABASE_NAME=tech_execution_planning' >> "$BASH_ENV"
+            echo 'export DATABASE_USERNAME=clusterAdmin' >> "$BASH_ENV"
+            echo 'export DATABASE_PORT=5432' >> "$BASH_ENV"
+      - run:
+          name: Run migrations
+          command: npx tsx src/scripts/migrate.ts
+          no_output_timeout: 10m
+    circleci_ip_ranges: true
+
+  migrate-staging:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - run:
+          name: Set DB envvars
+          command: |
+            echo 'export DATABASE_HOST=$STAGING_DATABASE_HOST' >> "$BASH_ENV"
+            echo 'export DATABASE_PASSWORD=$STAGING_DATABASE_PASSWORD' >> "$BASH_ENV"
+            echo 'export DATABASE_NAME=tech_execution_planning' >> "$BASH_ENV"
+            echo 'export DATABASE_USERNAME=clusterAdmin' >> "$BASH_ENV"
+            echo 'export DATABASE_PORT=5432' >> "$BASH_ENV"
+      - run:
+          name: Run migrations
+          command: npx tsx src/scripts/migrate.ts
+          no_output_timeout: 10m
+    circleci_ip_ranges: true
+
+  migrate-prod:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - run:
+          name: Set DB envvars
+          command: |
+            echo 'export DATABASE_HOST=$PROD_DATABASE_HOST' >> "$BASH_ENV"
+            echo 'export DATABASE_PASSWORD=$PROD_DATABASE_PASSWORD' >> "$BASH_ENV"
+            echo 'export DATABASE_NAME=tech_execution_planning' >> "$BASH_ENV"
+            echo 'export DATABASE_USERNAME=clusterAdmin' >> "$BASH_ENV"
+            echo 'export DATABASE_PORT=5432' >> "$BASH_ENV"
+      - run:
+          name: Run migrations
+          command: npx tsx src/scripts/migrate.ts
+          no_output_timeout: 10m
+    circleci_ip_ranges: true
+
+  deploy-dev:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::657230704726:role/CircleCI-OIDC
+          profile-name: veho-dev
+      - attach_workspace:
+          at: .
+      - run:
+          name: Deploy to dev
+          command: npx cdk deploy tech-execution-planning-dev --app cdk.out --require-approval never
+          no_output_timeout: 30m
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+  deploy-vpn-dev:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::202836572542:role/CircleCI-OIDC
+      - attach_workspace:
+          at: .
+      - run:
+          name: Deploy VPN stack
+          command: npx cdk deploy tech-execution-planning-dev-vpn --app cdk.out --require-approval never
+          no_output_timeout: 30m
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+  deploy-dns-dev:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::657230704726:role/CircleCI-OIDC
+          profile-name: veho-dev
+      - attach_workspace:
+          at: .
+      - run:
+          name: Deploy DNS stack
+          command: npx cdk deploy tech-execution-planning-dev-dns --app cdk.out --require-approval never
+          no_output_timeout: 30m
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+  deploy-staging:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::048595045497:role/CircleCI-OIDC
+          profile-name: veho-staging
+      - attach_workspace:
+          at: .
+      - run:
+          name: Deploy to staging
+          command: npx cdk deploy tech-execution-planning-staging --app cdk.out --require-approval never
+          no_output_timeout: 30m
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+  diff-prod:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::595208618232:role/CircleCI-OIDC
+          profile-name: veho-prod
+      - attach_workspace:
+          at: .
+      - run:
+          name: CDK Diff prod
+          command: npx cdk diff tech-execution-planning-prod --app cdk.out > >(tee cdk.log)
+          no_output_timeout: 10m
+      - persist_to_workspace:
+          root: .
+          paths:
+            - cdk.log
+      - store_artifacts:
+          path: cdk.log
+
+  deploy-prod:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - aws-cli/setup:
+          role-arn: arn:aws:iam::595208618232:role/CircleCI-OIDC
+          profile-name: veho-prod
+      - attach_workspace:
+          at: .
+      - run:
+          name: Deploy to prod
+          command: npx cdk deploy tech-execution-planning-prod --app cdk.out --require-approval never
+          no_output_timeout: 30m
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+          channel: _circleci
+
+workflows:
+  build:
+    when:
+      not:
+        or:
+          - equal:
+              - main
+              - << pipeline.git.branch >>
+          - equal:
+              - dev
+              - << pipeline.git.branch >>
+    jobs:
+      - test:
+          context:
+            - aws-platform
+            - slack
+      - synth:
+          context:
+            - aws-platform
+      - diff-prod:
+          requires:
+            - synth
+          context:
+            - aws-platform
+
+  deploy:
+    when:
+      or:
+        - equal:
+            - main
+            - << pipeline.git.branch >>
+        - equal:
+            - dev
+            - << pipeline.git.branch >>
+    jobs:
+      - test:
+          context:
+            - aws-platform
+            - slack
+      - synth:
+          context:
+            - aws-platform
+      - migrate-dev:
+          filters:
+            branches:
+              only:
+                - dev
+          requires:
+            - test
+            - synth
+          context:
+            - aws-platform
+      - deploy-dev:
+          filters:
+            branches:
+              only:
+                - dev
+          requires:
+            - test
+            - synth
+            - migrate-dev
+          context:
+            - aws-platform
+      - deploy-vpn-dev:
+          filters:
+            branches:
+              only:
+                - dev
+          requires:
+            - deploy-dev
+          context:
+            - aws-platform
+      - deploy-dns-dev:
+          filters:
+            branches:
+              only:
+                - dev
+          requires:
+            - deploy-vpn-dev
+          context:
+            - aws-platform
+      - migrate-staging:
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - test
+            - synth
+          context:
+            - aws-platform
+      - deploy-staging:
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - test
+            - synth
+            - migrate-staging
+          context:
+            - aws-platform
+      - diff-prod:
+          requires:
+            - synth
+          context:
+            - aws-platform
+      - slack/on-hold:
+          name: Notify Slack - deploy-prod Approval Required
+          context:
+            - slack
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - deploy-staging
+            - diff-prod
+          channel: _circleci
+      - approve-deploy-prod:
+          name: Wait for deploy-prod Approval
+          type: approval
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - deploy-staging
+            - diff-prod
+      - migrate-prod:
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - Wait for deploy-prod Approval
+          context:
+            - aws-platform
+      - deploy-prod:
+          filters:
+            branches:
+              only:
+                - main
+          requires:
+            - deploy-staging
+            - diff-prod
+            - Wait for deploy-prod Approval
+            - migrate-prod
+          context:
+            - aws-platform
