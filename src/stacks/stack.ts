@@ -7,6 +7,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs'
 import { ApplicationProtocol, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2'
 import { AlbListenerTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets'
 import { AccountPrincipal } from 'aws-cdk-lib/aws-iam'
+import { Key } from 'aws-cdk-lib/aws-kms'
 import * as rds from 'aws-cdk-lib/aws-rds'
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager'
 import { Construct } from 'constructs'
@@ -193,10 +194,17 @@ export class AppStack extends VehoStack {
     })
 
     // Store endpoint service name in Secrets Manager for cross-account consumption
-    new Secret(this, 'VpceServiceNameSecret', {
+    const crossAccountKey = new Key(this, 'CrossAccountSecretKey', {
+      description: 'KMS key for cross-account secret access (VPN account)',
+    })
+    const vpceServiceNameSecret = new Secret(this, 'VpceServiceNameSecret', {
       secretName: props.vpcEndpointServiceNameSecretName,
       secretStringValue: SecretValue.unsafePlainText(endpointService.vpcEndpointServiceName),
       description: 'VPC Endpoint Service name for tech-execution-planning',
+      encryptionKey: crossAccountKey,
     })
+
+    // Allow VPN account to read the secret (cross-account access for CloudFormation)
+    vpceServiceNameSecret.grantRead(new AccountPrincipal(props.vpnAccountId))
   }
 }
