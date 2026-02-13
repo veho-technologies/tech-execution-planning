@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { parseISO } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Calculate working days between two dates, excluding weekends and holidays
  */

@@ -3,6 +3,8 @@ import db from '@/lib/db';
 import { Team } from '@/types';
 import { fetchLinearProjects } from '@/lib/linear';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

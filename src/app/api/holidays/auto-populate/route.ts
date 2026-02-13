@@ -3,6 +3,8 @@ import db from '@/lib/db';
 import { getHolidaysInRange } from '@/lib/federal-holidays';
 import { parseISO } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { quarter_id } = await request.json();

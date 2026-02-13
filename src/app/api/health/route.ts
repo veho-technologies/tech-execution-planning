@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { sql } from 'kysely';
 import db from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const diagnostics: Record<string, unknown> = {
     status: 'ok',
