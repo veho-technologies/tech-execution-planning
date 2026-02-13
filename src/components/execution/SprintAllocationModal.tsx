@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Project, Sprint, Quarter, SprintAllocation, ProjectPhase, Holiday } from '@/types';
+import { Project, Sprint, Quarter, SprintAllocation, ProjectPhase, Holiday, ALL_PHASES, parsePhases, serializePhases } from '@/types';
 import { calculateSprintAllocationDays } from '@/lib/capacity';
 import PhaseIndicator from './PhaseIndicator';
 import { X } from 'lucide-react';
@@ -29,7 +29,9 @@ export default function SprintAllocationModal({
   onClose,
   onSave,
 }: SprintAllocationModalProps) {
-  const [phase, setPhase] = useState<ProjectPhase>(allocation?.phase || 'Execution');
+  const [selectedPhases, setSelectedPhases] = useState<ProjectPhase[]>(
+    allocation?.phase ? parsePhases(allocation.phase) : ['Execution']
+  );
   const [sprintGoal, setSprintGoal] = useState(allocation?.sprintGoal || '');
   const [numEngineers, setNumEngineers] = useState(allocation?.numEngineers || 0);
   const [engineersAssigned, setEngineersAssigned] = useState(allocation?.engineersAssigned || '');
@@ -78,7 +80,7 @@ export default function SprintAllocationModal({
         body: JSON.stringify({
           project_id: project.id,
           sprint_id: sprint.id,
-          phase,
+          phase: serializePhases(selectedPhases),
           sprint_goal: sprintGoal || null,
           num_engineers: numEngineers,
           engineers_assigned: engineersAssigned || null,
@@ -144,20 +146,27 @@ export default function SprintAllocationModal({
               {/* Phase Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project Phase
+                  Project Phase(s)
                 </label>
-                <select
-                  value={phase}
-                  onChange={(e) => setPhase(e.target.value as ProjectPhase)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Tech Spec">Tech Spec</option>
-                  <option value="Execution">Execution</option>
-                  <option value="UAT">UAT</option>
-                  <option value="Rollout">Rollout</option>
-                </select>
-                <div className="mt-2">
-                  <PhaseIndicator phase={phase} />
+                <div className="space-y-2">
+                  {ALL_PHASES.map((p) => (
+                    <label key={p} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedPhases.includes(p)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPhases([...selectedPhases, p]);
+                          } else {
+                            const next = selectedPhases.filter(sp => sp !== p);
+                            if (next.length > 0) setSelectedPhases(next);
+                          }
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <PhaseIndicator phase={p} />
+                    </label>
+                  ))}
                 </div>
               </div>
 

@@ -53,7 +53,18 @@ export interface Project {
   updatedAt: string;
 }
 
-export type ProjectPhase = 'Tech Spec' | 'Execution' | 'UAT' | 'Rollout';
+export type ProjectPhase = 'Tech Spec' | 'Execution' | 'Developer Testing' | 'UAT' | 'Rollout';
+
+export const ALL_PHASES: ProjectPhase[] = ['Tech Spec', 'Execution', 'Developer Testing', 'UAT', 'Rollout'];
+
+export function parsePhases(phase: string | null | undefined): ProjectPhase[] {
+  if (!phase) return ['Execution'];
+  return phase.split(',').map(p => p.trim()).filter(Boolean) as ProjectPhase[];
+}
+
+export function serializePhases(phases: ProjectPhase[]): string {
+  return phases.join(',');
+}
 
 export interface SprintAllocation {
   id: number;
