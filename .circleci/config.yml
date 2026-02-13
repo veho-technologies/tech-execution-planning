@@ -86,6 +86,34 @@ jobs:
           no_output_timeout: 10m
     circleci_ip_ranges: true
 
+  seed-dev:
+    docker:
+      - image: cimg/node:22.14.0
+    resource_class: small
+    steps:
+      - checkout:
+          method: blobless
+      - run:
+          name: Setup NPM token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - node/install-packages:
+          pkg-manager: npm
+          with-cache: true
+          include-branch-in-cache-key: false
+      - run:
+          name: Set DB envvars
+          command: |
+            echo 'export DATABASE_HOST=$DEV_DATABASE_HOST' >> "$BASH_ENV"
+            echo 'export DATABASE_PASSWORD=$DEV_DATABASE_PASSWORD' >> "$BASH_ENV"
+            echo 'export DATABASE_NAME=tech_execution_planning' >> "$BASH_ENV"
+            echo 'export DATABASE_USERNAME=clusterAdmin' >> "$BASH_ENV"
+            echo 'export DATABASE_PORT=5432' >> "$BASH_ENV"
+      - run:
+          name: Seed dev database
+          command: npx tsx src/scripts/seed.ts
+          no_output_timeout: 10m
+    circleci_ip_ranges: true
+
   migrate-staging:
     docker:
       - image: cimg/node:22.14.0
@@ -377,6 +405,15 @@ workflows:
             - synth
           context:
             - aws-platform
+      - seed-dev:
+          filters:
+            branches:
+              only:
+                - dev
+          requires:
+            - migrate-dev
+          context:
+            - aws-platform
       - deploy-dev:
           filters:
             branches:
@@ -385,7 +422,7 @@ workflows:
           requires:
             - test
             - synth
-            - migrate-dev
+            - seed-dev
           context:
             - aws-platform
       - deploy-vpn-dev:
