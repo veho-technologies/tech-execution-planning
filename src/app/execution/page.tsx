@@ -39,7 +39,8 @@ export default function ExecutionPage() {
       if (selectedQuarter && selectedTeam) {
         // Check if sprints already exist for this quarter
         const sprintsRes = await fetch(`/api/sprints?quarter_id=${selectedQuarter.id}`);
-        const existingSprints = await sprintsRes.json();
+        const sprintsRaw = await sprintsRes.json();
+        const existingSprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
         // Only sync cycles if no sprints exist yet (first load)
         // Otherwise, skip sync to preserve allocations
@@ -64,11 +65,14 @@ export default function ExecutionPage() {
       const quartersData = await quartersRes.json();
       const teamsData = await teamsRes.json();
 
-      setQuarters(quartersData);
-      setTeams(teamsData);
+      const safeQuarters = Array.isArray(quartersData) ? quartersData : [];
+      const safeTeams = Array.isArray(teamsData) ? teamsData : [];
 
-      if (quartersData.length > 0) setSelectedQuarter(quartersData[0]);
-      if (teamsData.length > 0) setSelectedTeam(teamsData[0]);
+      setQuarters(safeQuarters);
+      setTeams(safeTeams);
+
+      if (safeQuarters.length > 0) setSelectedQuarter(safeQuarters[0]);
+      if (safeTeams.length > 0) setSelectedTeam(safeTeams[0]);
     } catch (error) {
       console.error('Error fetching initial data:', error);
     } finally {
@@ -81,7 +85,8 @@ export default function ExecutionPage() {
 
     try {
       const cyclesRes = await fetch(`/api/linear/cycles?team_id=${selectedTeam.linearTeamId}`);
-      const cycles = await cyclesRes.json();
+      const cyclesRaw = await cyclesRes.json();
+      const cycles = Array.isArray(cyclesRaw) ? cyclesRaw : [];
 
       console.log('Fetched cycles from Linear:', cycles);
 
@@ -189,8 +194,11 @@ export default function ExecutionPage() {
         fetch(`/api/projects?quarter_id=${selectedQuarter.id}&team_id=${selectedTeam.id}`),
       ]);
 
-      const sprintsData = await sprintsRes.json();
-      const projectsData = await projectsRes.json();
+      const sprintsRaw = await sprintsRes.json();
+      const projectsRaw = await projectsRes.json();
+
+      const sprintsData = Array.isArray(sprintsRaw) ? sprintsRaw : [];
+      const projectsData = Array.isArray(projectsRaw) ? projectsRaw : [];
 
       console.log('Fetched sprints:', sprintsData.length, 'sprints');
       console.log('Fetched projects:', projectsData.length, 'projects');
@@ -312,9 +320,12 @@ export default function ExecutionPage() {
         fetch(`/api/team-quarter-settings?team_id=${selectedTeam.id}&quarter_id=${selectedQuarter.id}`),
       ]);
 
-      const holidaysData = await holidaysRes.json();
+      const holidaysRaw = await holidaysRes.json();
       const ptoEntries = await ptoRes.json();
-      const teamSettings = await teamSettingsRes.json();
+      const teamSettingsRaw = await teamSettingsRes.json();
+
+      const holidaysData = Array.isArray(holidaysRaw) ? holidaysRaw : [];
+      const teamSettings = Array.isArray(teamSettingsRaw) ? teamSettingsRaw : [];
 
       setHolidays(holidaysData);
 
