@@ -36,24 +36,39 @@ async function seed() {
     console.log(`Reading seed file: ${sqlFile}`);
     const sql = await fs.readFile(sqlFile, 'utf-8');
 
-    // Execute each statement (split on semicolons, but be careful with strings)
-    const statements = sql
+    // Strip comment lines before splitting to avoid comments merging with statements
+    const cleaned = sql
+      .split('\n')
+      .filter(line => !line.trimStart().startsWith('--'))
+      .join('\n');
+
+    // Split on semicolons at end of line
+    const statements = cleaned
       .split(/;\s*$/m)
       .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+      .filter(s => s.length > 0);
 
     console.log(`Found ${statements.length} statements to execute`);
 
+    let success = 0;
+    let errors = 0;
     for (const stmt of statements) {
       try {
         await client.query(stmt);
+        success++;
       } catch (err: any) {
+        errors++;
         console.error(`Error executing statement: ${err.message}`);
         console.error(`Statement: ${stmt.substring(0, 100)}...`);
       }
     }
 
-    console.log('Seed data loaded successfully');
+    console.log(`Seed complete: ${success} succeeded, ${errors} failed`);
+    if (errors > 0) {
+      console.error('Some statements failed - check errors above');
+      process.exit(1);
+    }
+
     client.release();
   } catch (error) {
     console.error('Seed failed:', error);
