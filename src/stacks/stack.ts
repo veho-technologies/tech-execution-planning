@@ -83,12 +83,12 @@ export class AppStack extends VehoStack {
 
     const proxy = dbCluster.defaultProxy
 
-    // Security group for Fargate → RDS Proxy access
+    // Security group for Fargate → RDS cluster access
     const computeSg = new ec2.SecurityGroup(this, 'compute-sg', {
       vpc,
-      description: 'Security group for Fargate service to access RDS Proxy',
+      description: 'Security group for Fargate service to access RDS cluster',
     })
-    proxy.connections.allowFrom(computeSg, ec2.Port.tcp(5432))
+    dbCluster.connections.allowFrom(computeSg, ec2.Port.tcp(5432))
 
     // Allow CircleCI IP ranges to access DB cluster directly (for migrations)
     const cfnPrefixList = new ec2.CfnPrefixList(this, 'PrefixList', prefixList)
@@ -114,7 +114,7 @@ export class AppStack extends VehoStack {
 
     // Container environment variables
     const containerEnvVars: Record<string, string> = {
-      DATABASE_HOST: proxy.endpoint,
+      DATABASE_HOST: dbCluster.clusterEndpoint.hostname,
       DATABASE_PORT: '5432',
       DATABASE_NAME: databaseOptions.databaseName,
       DATABASE_USERNAME: databaseOptions.adminUsername,
