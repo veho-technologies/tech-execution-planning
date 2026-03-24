@@ -2,12 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Users } from 'lucide-react';
+import { Calendar, Users, BarChart3 } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
-
-  const isActive = (path: string) => pathname === path;
 
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
@@ -31,6 +29,18 @@ export default function Navbar() {
             >
               <Calendar className="w-4 h-4 mr-2" />
               Execution
+            </Link>
+
+            <Link
+              href="/roadmap"
+              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname.startsWith('/roadmap')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Roadmap
             </Link>
 
             <Link
