@@ -422,7 +422,7 @@ workflows:
           requires:
             - test
             - synth
-            - seed-dev
+            - migrate-dev
           context:
             - aws-platform
       - deploy-vpn-dev:
