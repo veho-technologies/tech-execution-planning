@@ -86,34 +86,6 @@ jobs:
           no_output_timeout: 10m
     circleci_ip_ranges: true
 
-  seed-dev:
-    docker:
-      - image: cimg/node:22.14.0
-    resource_class: small
-    steps:
-      - checkout:
-          method: blobless
-      - run:
-          name: Setup NPM token
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-      - node/install-packages:
-          pkg-manager: npm
-          with-cache: true
-          include-branch-in-cache-key: false
-      - run:
-          name: Set DB envvars
-          command: |
-            echo 'export DATABASE_HOST=$DEV_DATABASE_HOST' >> "$BASH_ENV"
-            echo 'export DATABASE_PASSWORD=$DEV_DATABASE_PASSWORD' >> "$BASH_ENV"
-            echo 'export DATABASE_NAME=tech_execution_planning' >> "$BASH_ENV"
-            echo 'export DATABASE_USERNAME=clusterAdmin' >> "$BASH_ENV"
-            echo 'export DATABASE_PORT=5432' >> "$BASH_ENV"
-      - run:
-          name: Seed dev database
-          command: npx tsx src/scripts/seed.ts
-          no_output_timeout: 10m
-    circleci_ip_ranges: true
-
   migrate-staging:
     docker:
       - image: cimg/node:22.14.0
@@ -354,16 +326,13 @@ jobs:
           channel: _circleci
 
 workflows:
+  # Feature branches: test + synth + diff only
   build:
     when:
       not:
-        or:
-          - equal:
-              - main
-              - << pipeline.git.branch >>
-          - equal:
-              - dev
-              - << pipeline.git.branch >>
+        equal:
+          - main
+          - << pipeline.git.branch >>
     jobs:
       - test:
           context:
@@ -378,15 +347,12 @@ workflows:
           context:
             - aws-platform
 
+  # Main branch: deploy to dev → staging → prod (with approval)
   deploy:
     when:
-      or:
-        - equal:
-            - main
-            - << pipeline.git.branch >>
-        - equal:
-            - dev
-            - << pipeline.git.branch >>
+      equal:
+        - main
+        - << pipeline.git.branch >>
     jobs:
       - test:
           context:
@@ -395,75 +361,40 @@ workflows:
       - synth:
           context:
             - aws-platform
+      # Dev: migrate → deploy → vpn → dns
       - migrate-dev:
-          filters:
-            branches:
-              only:
-                - dev
           requires:
             - test
             - synth
           context:
             - aws-platform
-      - seed-dev:
-          filters:
-            branches:
-              only:
-                - dev
+      - deploy-dev:
           requires:
             - migrate-dev
           context:
             - aws-platform
-      - deploy-dev:
-          filters:
-            branches:
-              only:
-                - dev
-          requires:
-            - test
-            - synth
-            - seed-dev
-          context:
-            - aws-platform
       - deploy-vpn-dev:
-          filters:
-            branches:
-              only:
-                - dev
           requires:
             - deploy-dev
           context:
             - aws-platform
       - deploy-dns-dev:
-          filters:
-            branches:
-              only:
-                - dev
           requires:
             - deploy-vpn-dev
           context:
             - aws-platform
+      # Staging: starts after dev is fully deployed
       - migrate-staging:
-          filters:
-            branches:
-              only:
-                - main
           requires:
-            - test
-            - synth
+            - deploy-dns-dev
           context:
             - aws-platform
       - deploy-staging:
-          filters:
-            branches:
-              only:
-                - main
           requires:
-            - test
-            - synth
             - migrate-staging
           context:
             - aws-platform
+      # Prod: diff + approval gate
       - diff-prod:
           requires:
             - synth
@@ -473,10 +404,6 @@ workflows:
           name: Notify Slack - deploy-prod Approval Required
           context:
             - slack
-          filters:
-            branches:
-              only:
-                - main
           requires:
             - deploy-staging
             - diff-prod
@@ -484,30 +411,16 @@ workflows:
       - approve-deploy-prod:
           name: Wait for deploy-prod Approval
           type: approval
-          filters:
-            branches:
-              only:
-                - main
           requires:
             - deploy-staging
             - diff-prod
       - migrate-prod:
-          filters:
-            branches:
-              only:
-                - main
           requires:
             - Wait for deploy-prod Approval
           context:
             - aws-platform
       - deploy-prod:
-          filters:
-            branches:
-              only:
-                - main
           requires:
-            - deploy-staging
-            - diff-prod
             - Wait for deploy-prod Approval
             - migrate-prod
           context:
