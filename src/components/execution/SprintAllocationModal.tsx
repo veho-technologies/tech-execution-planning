@@ -14,6 +14,7 @@ interface SprintAllocationModalProps {
   allocation: SprintAllocation | undefined;
   previousSprintActual: number | null;
   ptoDaysPerEngineer?: number;
+  weekStartDate?: string | null; // for weekly view — pass the week's start date
   onClose: () => void;
   onSave: () => void;
 }
@@ -26,6 +27,7 @@ export default function SprintAllocationModal({
   allocation,
   previousSprintActual,
   ptoDaysPerEngineer = 0,
+  weekStartDate,
   onClose,
   onSave,
 }: SprintAllocationModalProps) {
@@ -88,6 +90,7 @@ export default function SprintAllocationModal({
           actual_days: allocation?.actualDays || 0,
           planned_description: description || null,
           is_manual_override: isManualOverride,
+          ...(weekStartDate ? { week_start_date: weekStartDate } : {}),
         }),
       });
 

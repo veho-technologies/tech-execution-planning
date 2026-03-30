@@ -314,6 +314,7 @@ function SortableProjectRow({
                 sprint: wc.sprint,
                 allocation,
                 previousSprintActual: null,
+                weekStartDate: wc.weekStartDate,
               })}
             />
           );
@@ -373,6 +374,7 @@ export default function ExecutionTable({
     sprint: Sprint;
     allocation: SprintAllocation | undefined;
     previousSprintActual: number | null;
+    weekStartDate?: string | null;
   } | null>(null);
 
   const [dateModalOpen, setDateModalOpen] = useState<{
@@ -978,6 +980,7 @@ export default function ExecutionTable({
           allocation={modalOpen.allocation}
           previousSprintActual={modalOpen.previousSprintActual}
           ptoDaysPerEngineer={ptoDaysPerEngineer}
+          weekStartDate={modalOpen.weekStartDate}
           onClose={() => setModalOpen(null)}
           onSave={async () => {
             await onUpdateAllocation({});
