@@ -35,35 +35,31 @@ export async function GET(request: NextRequest) {
     }
 
     // Sprint view: aggregate weekly rows by (project_id, sprint_id)
-    // Use Kysely query builder with groupBy for proper column mapping
-    let query = db.selectFrom('sprintAllocations')
-      .select([
-        'projectId',
-        'sprintId',
-      ])
-      .select(({ fn }) => [
-        fn.sum<number>('plannedDays').as('plannedDays'),
-        fn.sum<number>('actualDays').as('actualDays'),
-        fn.max<number>('numEngineers').as('numEngineers'),
-        fn.max<string>('phase').as('phase'),
-        fn.max<string>('engineersAssigned').as('engineersAssigned'),
-        fn.max<string>('sprintGoal').as('sprintGoal'),
-        fn.max<string>('plannedDescription').as('plannedDescription'),
-      ])
-      .groupBy(['projectId', 'sprintId']);
+    // SUM days, AVG engineers (weighted), concatenate phases
+    const rawQuery = sql`
+      SELECT
+        project_id as "projectId",
+        sprint_id as "sprintId",
+        SUM(planned_days) as "plannedDays",
+        SUM(actual_days) as "actualDays",
+        CASE
+          WHEN SUM(planned_days) > 0
+          THEN SUM(planned_days * num_engineers) / SUM(planned_days)
+          ELSE 0
+        END as "numEngineers",
+        STRING_AGG(DISTINCT phase, ',' ORDER BY phase) as "phase",
+        STRING_AGG(DISTINCT engineers_assigned, ', ') FILTER (WHERE engineers_assigned IS NOT NULL) as "engineersAssigned",
+        STRING_AGG(DISTINCT sprint_goal, ' | ') FILTER (WHERE sprint_goal IS NOT NULL) as "sprintGoal",
+        MAX(planned_description) as "plannedDescription"
+      FROM sprint_allocations
+      WHERE 1=1
+        ${projectIds.length > 1 ? sql`AND project_id IN (${sql.join(projectIds.map(id => sql`${id}`))})` : projectIds.length === 1 ? sql`AND project_id = ${projectIds[0]}` : sql``}
+        ${sprintId ? sql`AND sprint_id = ${sprintId}` : sql``}
+      GROUP BY project_id, sprint_id
+    `;
 
-    if (projectIds.length > 1) {
-      query = query.where('projectId', 'in', projectIds);
-    } else if (projectIds.length === 1) {
-      query = query.where('projectId', '=', projectIds[0]);
-    }
-
-    if (sprintId) {
-      query = query.where('sprintId', '=', sprintId);
-    }
-
-    const allocations = await query.execute();
-    return NextResponse.json(allocations);
+    const result = await rawQuery.execute(db);
+    return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching allocations:', error);
     return NextResponse.json(
