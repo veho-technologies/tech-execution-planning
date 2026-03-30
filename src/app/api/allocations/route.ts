@@ -35,39 +35,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Sprint view: aggregate weekly rows by (project_id, sprint_id)
-    // Legacy rows (week_start_date IS NULL) pass through as-is
-    const rawQuery = sql`
-      SELECT project_id, sprint_id,
-        SUM(planned_days) as planned_days,
-        SUM(actual_days) as actual_days,
-        MAX(num_engineers) as num_engineers,
-        STRING_AGG(DISTINCT phase, ',') as phase,
-        MAX(engineers_assigned) as engineers_assigned,
-        MAX(sprint_goal) as sprint_goal,
-        MAX(planned_description) as planned_description,
-        MAX(is_manual_override::int)::boolean as is_manual_override
-      FROM sprint_allocations
-      WHERE 1=1
-        ${projectIds.length > 1 ? sql`AND project_id IN (${sql.join(projectIds.map(id => sql`${id}`))})` : projectIds.length === 1 ? sql`AND project_id = ${projectIds[0]}` : sql``}
-        ${sprintId ? sql`AND sprint_id = ${sprintId}` : sql``}
-      GROUP BY project_id, sprint_id
-    `;
+    // Use Kysely query builder with groupBy for proper column mapping
+    let query = db.selectFrom('sprintAllocations')
+      .select([
+        'projectId',
+        'sprintId',
+      ])
+      .select(({ fn }) => [
+        fn.sum<number>('plannedDays').as('plannedDays'),
+        fn.sum<number>('actualDays').as('actualDays'),
+        fn.max<number>('numEngineers').as('numEngineers'),
+        fn.max<string>('phase').as('phase'),
+        fn.max<string>('engineersAssigned').as('engineersAssigned'),
+        fn.max<string>('sprintGoal').as('sprintGoal'),
+        fn.max<string>('plannedDescription').as('plannedDescription'),
+      ])
+      .groupBy(['projectId', 'sprintId']);
 
-    const result = await rawQuery.execute(db);
-    // Map snake_case columns to camelCase for API consistency
-    const allocations = (result.rows as Record<string, unknown>[]).map(row => ({
-      projectId: row.project_id,
-      sprintId: row.sprint_id,
-      plannedDays: row.planned_days,
-      actualDays: row.actual_days,
-      numEngineers: row.num_engineers,
-      phase: row.phase,
-      engineersAssigned: row.engineers_assigned,
-      sprintGoal: row.sprint_goal,
-      plannedDescription: row.planned_description,
-      isManualOverride: row.is_manual_override,
-    }));
+    if (projectIds.length > 1) {
+      query = query.where('projectId', 'in', projectIds);
+    } else if (projectIds.length === 1) {
+      query = query.where('projectId', '=', projectIds[0]);
+    }
 
+    if (sprintId) {
+      query = query.where('sprintId', '=', sprintId);
+    }
+
+    const allocations = await query.execute();
     return NextResponse.json(allocations);
   } catch (error) {
     console.error('Error fetching allocations:', error);

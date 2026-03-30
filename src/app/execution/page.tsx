@@ -21,7 +21,7 @@ export default function ExecutionPage() {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
-  const [viewMode, setViewMode] = useState<'sprint' | 'weekly'>('sprint');
+  const [viewMode, setViewMode] = useState<'sprint' | 'weekly'>('weekly');
 
   const [showLinearSync, setShowLinearSync] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,10 @@ export default function ExecutionPage() {
       setQuarters(safeQuarters);
       setTeams(safeTeams);
 
-      if (safeQuarters.length > 0) setSelectedQuarter(safeQuarters[0]);
+      // Default to current quarter (Q2 2026 if available, otherwise first)
+      const now = new Date().toISOString().split('T')[0];
+      const currentQuarter = safeQuarters.find((q: Quarter) => q.startDate <= now && q.endDate >= now);
+      setSelectedQuarter(currentQuarter || safeQuarters[0] || null);
       if (safeTeams.length > 0) setSelectedTeam(safeTeams[0]);
     } catch (error) {
       console.error('Error fetching initial data:', error);

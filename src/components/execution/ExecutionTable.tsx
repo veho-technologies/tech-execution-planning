@@ -613,7 +613,7 @@ export default function ExecutionTable({
           {
             id: `${sprint.id}-w1`,
             sprint,
-            weekStartDate: sprint.startDate,
+            weekStartDate: format(sprintStart, 'yyyy-MM-dd'),
             weekEndDate: format(week1End, 'yyyy-MM-dd'),
             label: `W${getISOWeek(sprintStart)}`,
             sublabel: format(sprintStart, 'M/d'),
@@ -622,7 +622,7 @@ export default function ExecutionTable({
             id: `${sprint.id}-w2`,
             sprint,
             weekStartDate: format(week2Start, 'yyyy-MM-dd'),
-            weekEndDate: sprint.endDate,
+            weekEndDate: format(sprintEnd, 'yyyy-MM-dd'),
             label: `W${getISOWeek(week2Start)}`,
             sublabel: format(week2Start, 'M/d'),
           },
@@ -631,9 +631,15 @@ export default function ExecutionTable({
     : [];
 
   // Helper to get allocation for a weekly column
+  // Normalize dates to yyyy-MM-dd for comparison (DB may return full ISO or date-only)
+  const normalizeDate = (d: string | null | undefined): string => {
+    if (!d) return '';
+    return d.substring(0, 10); // "2026-04-06T04:00:00.000Z" → "2026-04-06"
+  };
   const getWeeklyAllocation = (projectId: string, weekStartDate: string): SprintAllocation | undefined => {
+    const target = normalizeDate(weekStartDate);
     return allocations.find(
-      a => a.projectId === projectId && a.weekStartDate === weekStartDate
+      a => a.projectId === projectId && normalizeDate(a.weekStartDate) === target
     );
   };
 

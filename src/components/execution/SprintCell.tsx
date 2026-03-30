@@ -102,15 +102,23 @@ export default function SprintCell({
             </div>
           )}
 
-          {/* Days and Engineers */}
+          {/* Sprint Goal or Days */}
           {allocation?.plannedDays ? (
             <div className="text-center group">
-              <div className="text-blue-600 font-semibold">
-                {allocation.plannedDays.toFixed(1)}d
-              </div>
-              {allocation.numEngineers > 0 && (
-                <div className="text-xs text-gray-600">
-                  ({allocation.numEngineers} eng)
+              {allocation.sprintGoal ? (
+                <div className="text-center px-1">
+                  <div className="text-xs text-gray-800 font-medium truncate max-w-[120px]" title={`${allocation.sprintGoal} (${allocation.plannedDays.toFixed(1)}d)`}>
+                    {allocation.sprintGoal}
+                  </div>
+                  {allocation.numEngineers > 0 && (
+                    <div className="text-[10px] text-gray-500">
+                      {allocation.numEngineers} eng
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-blue-600 font-semibold">
+                  {allocation.plannedDays.toFixed(1)}d
                 </div>
               )}
               {allocation.engineersAssigned && (
