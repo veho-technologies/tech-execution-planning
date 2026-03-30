@@ -150,6 +150,41 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get('id');
+    const projectId = searchParams.get('project_id');
+    const sprintId = searchParams.get('sprint_id');
+    const legacyOnly = searchParams.get('legacy_only'); // delete only sprint-level (no week) allocations
+
+    if (id) {
+      await db.deleteFrom('sprintAllocations').where('id', '=', parseInt(id)).execute();
+    } else if (projectId && sprintId) {
+      let query = db.deleteFrom('sprintAllocations')
+        .where('projectId', '=', projectId)
+        .where('sprintId', '=', sprintId);
+      if (legacyOnly === 'true') {
+        query = query.where('weekStartDate', 'is', null);
+      }
+      await query.execute();
+    } else if (projectId) {
+      let query = db.deleteFrom('sprintAllocations').where('projectId', '=', projectId);
+      if (legacyOnly === 'true') {
+        query = query.where('weekStartDate', 'is', null);
+      }
+      await query.execute();
+    } else {
+      return NextResponse.json({ error: 'id, project_id, or project_id+sprint_id required' }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting allocation:', error);
+    return NextResponse.json({ error: 'Failed to delete allocation' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
