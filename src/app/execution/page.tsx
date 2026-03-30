@@ -21,6 +21,8 @@ export default function ExecutionPage() {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
+  const [viewMode, setViewMode] = useState<'sprint' | 'weekly'>('sprint');
+
   const [showLinearSync, setShowLinearSync] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncingActuals, setSyncingActuals] = useState(false);
@@ -54,6 +56,23 @@ export default function ExecutionPage() {
 
     loadData();
   }, [selectedQuarter, selectedTeam]);
+
+  // Re-fetch allocations when viewMode changes (without re-syncing cycles/sprints)
+  useEffect(() => {
+    if (selectedQuarter && selectedTeam && projects.length > 0) {
+      const refetchAllocations = async () => {
+        const projectIds = projects.map((p: Project) => p.id).join(',');
+        const allocsRes = await fetch(
+          `/api/allocations?project_id=${projectIds}&view=${viewMode}`
+        );
+        if (allocsRes.ok) {
+          const allocsData = await allocsRes.json();
+          setAllocations(Array.isArray(allocsData) ? allocsData : []);
+        }
+      };
+      refetchAllocations();
+    }
+  }, [viewMode]);
 
   const fetchInitialData = async () => {
     try {
@@ -240,7 +259,7 @@ export default function ExecutionPage() {
         const projectIds = projectsData.map((p: Project) => p.id).join(',');
         console.log('Fetching allocations for project IDs:', projectIds);
         const allocsRes = await fetch(
-          `/api/allocations?project_id=${projectIds}`
+          `/api/allocations?project_id=${projectIds}&view=${viewMode}`
         );
 
         if (!allocsRes.ok) {
@@ -561,6 +580,8 @@ export default function ExecutionPage() {
               totalEngineers={effectiveTotalEngineers}
               ktloEngineers={effectiveKtloEngineers}
               meetingTimePercentage={effectiveMeetingTimePercentage}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               onUpdateAllocation={handleAllocationUpdate}
               onDeleteProject={handleDeleteProject}
             />

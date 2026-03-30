@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Trash2, GripVertical, Info } from 'lucide-react';
 import { Project, Sprint, SprintAllocation, Quarter, Team, Holiday } from '@/types';
 import { calculateSprintAllocationDays, calculateSprintAllocatedCapacity, getPreviousSprint } from '@/lib/capacity';
-import { parseISO, isWithinInterval, isBefore, isAfter, format } from 'date-fns';
+import { parseISO, isWithinInterval, isBefore, isAfter, format, addDays, getISOWeek } from 'date-fns';
 import SprintCell from './SprintCell';
 import SprintAllocationModal from './SprintAllocationModal';
 import DateUpdateModal from './DateUpdateModal';
@@ -29,6 +29,15 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { getStatusColor } from '@/lib/status-colors';
 
+interface WeekColumnInfo {
+  id: string;
+  sprint: Sprint;
+  weekStartDate: string;
+  weekEndDate: string;
+  label: string;
+  sublabel: string;
+}
+
 interface SortableProjectRowProps {
   project: Project;
   sprints: Sprint[];
@@ -37,7 +46,10 @@ interface SortableProjectRowProps {
   quarter: Quarter;
   team: Team;
   holidays: Holiday[];
+  viewMode: 'sprint' | 'weekly';
+  weekColumns: WeekColumnInfo[];
   getAllocation: (projectId: string, sprintId: string) => SprintAllocation | undefined;
+  getWeeklyAllocation: (projectId: string, weekStartDate: string) => SprintAllocation | undefined;
   getProjectTotal: (projectId: string, field: 'planned' | 'actual') => number;
   getProjectData: (project: Project) => any;
   getSprintStatus: (sprint: Sprint) => 'past' | 'current' | 'future';
@@ -59,7 +71,10 @@ function SortableProjectRow({
   quarter,
   team,
   holidays,
+  viewMode,
+  weekColumns,
   getAllocation,
+  getWeeklyAllocation,
   getProjectTotal,
   getProjectData,
   getSprintStatus,
@@ -257,29 +272,53 @@ function SortableProjectRow({
       <td className="metadata-cell text-center font-semibold text-orange-600">
         {remaining.toFixed(1)}
       </td>
-      {sprints.map(sprint => {
-        const allocation = getAllocation(project.id, sprint.id);
-        const prevSprint = getPreviousSprint(sprint, sprints);
-        const prevAllocation = prevSprint ? getAllocation(project.id, prevSprint.id) : null;
+      {viewMode === 'sprint' ? (
+        sprints.map(sprint => {
+          const allocation = getAllocation(project.id, sprint.id);
+          const prevSprint = getPreviousSprint(sprint, sprints);
+          const prevAllocation = prevSprint ? getAllocation(project.id, prevSprint.id) : null;
 
-        return (
-          <SprintCell
-            key={sprint.id}
-            allocation={allocation}
-            previousSprintActual={prevAllocation?.actualDays || null}
-            showActual={getSprintStatus(sprint) === 'past'}
-            projectId={project.id}
-            sprintId={sprint.id}
-            onMoveAllocation={handleMoveAllocation}
-            onClick={() => setModalOpen({
-              project,
-              sprint,
-              allocation,
-              previousSprintActual: prevAllocation?.actualDays || null,
-            })}
-          />
-        );
-      })}
+          return (
+            <SprintCell
+              key={sprint.id}
+              allocation={allocation}
+              previousSprintActual={prevAllocation?.actualDays || null}
+              showActual={getSprintStatus(sprint) === 'past'}
+              projectId={project.id}
+              sprintId={sprint.id}
+              onMoveAllocation={handleMoveAllocation}
+              onClick={() => setModalOpen({
+                project,
+                sprint,
+                allocation,
+                previousSprintActual: prevAllocation?.actualDays || null,
+              })}
+            />
+          );
+        })
+      ) : (
+        weekColumns.map(wc => {
+          const allocation = getWeeklyAllocation(project.id, wc.weekStartDate);
+
+          return (
+            <SprintCell
+              key={wc.id}
+              allocation={allocation}
+              previousSprintActual={null}
+              showActual={false}
+              projectId={project.id}
+              sprintId={wc.sprint.id}
+              onMoveAllocation={handleMoveAllocation}
+              onClick={() => setModalOpen({
+                project,
+                sprint: wc.sprint,
+                allocation,
+                previousSprintActual: null,
+              })}
+            />
+          );
+        })
+      )}
     </tr>
   );
 }
@@ -296,6 +335,8 @@ interface ExecutionTableProps {
   totalEngineers?: number;
   ktloEngineers?: number;
   meetingTimePercentage?: number | null;
+  viewMode: 'sprint' | 'weekly';
+  onViewModeChange: (mode: 'sprint' | 'weekly') => void;
   onUpdateAllocation: (allocation: Partial<SprintAllocation>) => Promise<void>;
   onDeleteProject: (projectId: string) => Promise<void>;
 }
@@ -312,6 +353,8 @@ export default function ExecutionTable({
   totalEngineers,
   ktloEngineers,
   meetingTimePercentage,
+  viewMode,
+  onViewModeChange,
   onUpdateAllocation,
   onDeleteProject,
 }: ExecutionTableProps) {
@@ -549,8 +592,70 @@ export default function ExecutionTable({
     }
   };
 
+  // Generate week columns for weekly view
+  interface WeekColumn {
+    id: string;
+    sprint: Sprint;
+    weekStartDate: string; // ISO date string
+    weekEndDate: string;
+    label: string; // e.g. "W14"
+    sublabel: string; // e.g. "3/30"
+  }
+
+  const weekColumns: WeekColumn[] = viewMode === 'weekly'
+    ? sprints.flatMap(sprint => {
+        const sprintStart = parseISO(sprint.startDate);
+        const week1End = addDays(sprintStart, 6);
+        const week2Start = addDays(sprintStart, 7);
+        const sprintEnd = parseISO(sprint.endDate);
+
+        return [
+          {
+            id: `${sprint.id}-w1`,
+            sprint,
+            weekStartDate: sprint.startDate,
+            weekEndDate: format(week1End, 'yyyy-MM-dd'),
+            label: `W${getISOWeek(sprintStart)}`,
+            sublabel: format(sprintStart, 'M/d'),
+          },
+          {
+            id: `${sprint.id}-w2`,
+            sprint,
+            weekStartDate: format(week2Start, 'yyyy-MM-dd'),
+            weekEndDate: sprint.endDate,
+            label: `W${getISOWeek(week2Start)}`,
+            sublabel: format(week2Start, 'M/d'),
+          },
+        ];
+      })
+    : [];
+
+  // Helper to get allocation for a weekly column
+  const getWeeklyAllocation = (projectId: string, weekStartDate: string): SprintAllocation | undefined => {
+    return allocations.find(
+      a => a.projectId === projectId && a.weekStartDate === weekStartDate
+    );
+  };
+
   return (
     <div className="overflow-x-auto mt-6">
+      {/* View mode toggle */}
+      <div className="flex justify-end mb-3">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+          <button
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${viewMode === 'sprint' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => onViewModeChange('sprint')}
+          >
+            Sprint
+          </button>
+          <button
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${viewMode === 'weekly' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => onViewModeChange('weekly')}
+          >
+            Weekly
+          </button>
+        </div>
+      </div>
       <table className="min-w-full border-collapse">
         <thead>
           <tr>
@@ -595,53 +700,80 @@ export default function ExecutionTable({
             <th className="metadata-header cursor-help" rowSpan={2} title="Remaining Days: Planned minus Actual">
               <div className="text-gray-600 text-[10px] border-b border-dotted border-gray-400">REM</div>
             </th>
-            {sprints.map(sprint => {
-              const status = getSprintStatus(sprint);
-              const capacity = getSprintCapacity(sprint.id);
-              const headerClass = status === 'current'
-                ? 'sprint-header bg-blue-100 border-2 border-blue-400 py-1'
-                : status === 'past'
-                ? 'sprint-header bg-gray-50 py-1'
-                : 'sprint-header py-1';
+            {viewMode === 'sprint' ? (
+              sprints.map(sprint => {
+                const status = getSprintStatus(sprint);
+                const capacity = getSprintCapacity(sprint.id);
+                const headerClass = status === 'current'
+                  ? 'sprint-header bg-blue-100 border-2 border-blue-400 py-1'
+                  : status === 'past'
+                  ? 'sprint-header bg-gray-50 py-1'
+                  : 'sprint-header py-1';
 
-              // Format dates compactly (MM/DD)
-              const startDate = format(parseISO(sprint.startDate), 'M/d');
-              const endDate = format(parseISO(sprint.endDate), 'M/d');
+                // Format dates compactly (MM/DD)
+                const startDate = format(parseISO(sprint.startDate), 'M/d');
+                const endDate = format(parseISO(sprint.endDate), 'M/d');
 
-              // Calculate available roadmap engineers using effective (override) values
-              const roadmapEngineers = Math.max(0, effectiveTotalEngineers - effectiveKtloEngineers);
+                return (
+                  <th key={sprint.id} className={headerClass} colSpan={status === 'past' ? 2 : 1}>
+                    <div className={`text-xs leading-tight ${status === 'current' ? 'font-bold text-blue-900' : 'font-semibold'}`}>
+                      {sprint.name}{status === 'current' && ' ●'}
+                    </div>
+                    <div className={`text-[9px] ${status === 'current' ? 'text-blue-700' : 'text-gray-500'}`}>
+                      {startDate}-{endDate}
+                    </div>
+                    <div className={`text-[9px] ${capacity.overCapacity ? 'text-red-600' : 'text-green-600'} font-semibold`}>
+                      {capacity.allocated.toFixed(1)}/{capacity.total.toFixed(1)}d ({capacity.remaining >= 0 ? '+' : ''}{capacity.remaining.toFixed(1)})
+                    </div>
+                  </th>
+                );
+              })
+            ) : (
+              weekColumns.map(wc => {
+                const status = getSprintStatus(wc.sprint);
+                const headerClass = status === 'current'
+                  ? 'sprint-header bg-blue-100 border-2 border-blue-400 py-1'
+                  : status === 'past'
+                  ? 'sprint-header bg-gray-50 py-1'
+                  : 'sprint-header py-1';
 
-              return (
-                <th key={sprint.id} className={headerClass} colSpan={status === 'past' ? 2 : 1}>
-                  <div className={`text-xs leading-tight ${status === 'current' ? 'font-bold text-blue-900' : 'font-semibold'}`}>
-                    {sprint.name}{status === 'current' && ' ●'}
-                  </div>
-                  <div className={`text-[9px] ${status === 'current' ? 'text-blue-700' : 'text-gray-500'}`}>
-                    {startDate}-{endDate}
-                  </div>
-                  <div className={`text-[9px] ${capacity.overCapacity ? 'text-red-600' : 'text-green-600'} font-semibold`}>
-                    {capacity.allocated.toFixed(1)}/{capacity.total.toFixed(1)}d ({capacity.remaining >= 0 ? '+' : ''}{capacity.remaining.toFixed(1)})
-                  </div>
-                </th>
-              );
-            })}
+                return (
+                  <th key={wc.id} className={headerClass} colSpan={1}>
+                    <div className={`text-xs leading-tight ${status === 'current' ? 'font-bold text-blue-900' : 'font-semibold'}`}>
+                      {wc.label}
+                    </div>
+                    <div className={`text-[9px] ${status === 'current' ? 'text-blue-700' : 'text-gray-500'}`}>
+                      {wc.sublabel}
+                    </div>
+                  </th>
+                );
+              })
+            )}
           </tr>
           <tr>
-            {sprints.map(sprint => {
-              const status = getSprintStatus(sprint);
-              return (
-                <React.Fragment key={`${sprint.id}-headers`}>
-                  <th className="sprint-header text-blue-600 text-[10px] py-0.5">
-                    Plan
-                  </th>
-                  {status === 'past' && (
-                    <th className="sprint-header text-green-600 text-[10px] py-0.5">
-                      Act
+            {viewMode === 'sprint' ? (
+              sprints.map(sprint => {
+                const status = getSprintStatus(sprint);
+                return (
+                  <React.Fragment key={`${sprint.id}-headers`}>
+                    <th className="sprint-header text-blue-600 text-[10px] py-0.5">
+                      Plan
                     </th>
-                  )}
-                </React.Fragment>
-              );
-            })}
+                    {status === 'past' && (
+                      <th className="sprint-header text-green-600 text-[10px] py-0.5">
+                        Act
+                      </th>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            ) : (
+              weekColumns.map(wc => (
+                <th key={`${wc.id}-sub`} className="sprint-header text-blue-600 text-[10px] py-0.5">
+                  Plan
+                </th>
+              ))
+            )}
           </tr>
         </thead>
         <DndContext
@@ -656,7 +788,7 @@ export default function ExecutionTable({
             <tbody>
               {localProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={11 + sprints.length * 2} className="text-center py-12 text-gray-500">
+                  <td colSpan={11 + (viewMode === 'sprint' ? sprints.length * 2 : weekColumns.length)} className="text-center py-12 text-gray-500">
                     No projects found. Import projects from Linear to get started.
                   </td>
                 </tr>
@@ -672,7 +804,10 @@ export default function ExecutionTable({
                       quarter={quarter}
                       team={team}
                       holidays={holidays}
+                      viewMode={viewMode}
+                      weekColumns={weekColumns}
                       getAllocation={getAllocation}
+                      getWeeklyAllocation={getWeeklyAllocation}
                       getProjectTotal={getProjectTotal}
                       getProjectData={getProjectData}
                       getSprintStatus={getSprintStatus}
@@ -717,47 +852,68 @@ export default function ExecutionTable({
                         return sum + (planned - actual);
                       }, 0).toFixed(1)}
                     </td>
-                    {sprints.map(sprint => {
-                      const sprintTotal = localProjects.reduce((sum, p) => {
-                        const alloc = getAllocation(p.id, sprint.id);
-                        return sum + (alloc?.plannedDays || 0);
-                      }, 0);
-                      const sprintEngineers = localProjects.reduce((sum, p) => {
-                        const alloc = getAllocation(p.id, sprint.id);
-                        return sum + (alloc?.numEngineers || 0);
-                      }, 0);
-                      const sprintActual = localProjects.reduce((sum, p) => {
-                        const alloc = getAllocation(p.id, sprint.id);
-                        return sum + (alloc?.actualDays || 0);
-                      }, 0);
-                      const status = getSprintStatus(sprint);
+                    {viewMode === 'sprint' ? (
+                      sprints.map(sprint => {
+                        const sprintTotal = localProjects.reduce((sum, p) => {
+                          const alloc = getAllocation(p.id, sprint.id);
+                          return sum + (alloc?.plannedDays || 0);
+                        }, 0);
+                        const sprintEngineers = localProjects.reduce((sum, p) => {
+                          const alloc = getAllocation(p.id, sprint.id);
+                          return sum + (alloc?.numEngineers || 0);
+                        }, 0);
+                        const sprintActual = localProjects.reduce((sum, p) => {
+                          const alloc = getAllocation(p.id, sprint.id);
+                          return sum + (alloc?.actualDays || 0);
+                        }, 0);
+                        const status = getSprintStatus(sprint);
 
-                      const roadmapEngineers = Math.max(0, effectiveTotalEngineers - effectiveKtloEngineers);
+                        const roadmapEngineers = Math.max(0, effectiveTotalEngineers - effectiveKtloEngineers);
 
-                      return (
-                        <React.Fragment key={`total-${sprint.id}`}>
-                          <td className="metadata-cell text-center">
-                            {sprintTotal > 0 ? (
-                              <div>
-                                <div className="font-semibold text-blue-700">
-                                  {sprintTotal.toFixed(1)}d
+                        return (
+                          <React.Fragment key={`total-${sprint.id}`}>
+                            <td className="metadata-cell text-center">
+                              {sprintTotal > 0 ? (
+                                <div>
+                                  <div className="font-semibold text-blue-700">
+                                    {sprintTotal.toFixed(1)}d
+                                  </div>
+                                  <div className="text-[9px] text-gray-600">
+                                    {sprintEngineers.toFixed(1)}/{roadmapEngineers.toFixed(1)}e
+                                  </div>
                                 </div>
-                                <div className="text-[9px] text-gray-600">
-                                  {sprintEngineers.toFixed(1)}/{roadmapEngineers.toFixed(1)}e
-                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            {status === 'past' && (
+                              <td className="metadata-cell text-center text-green-700">
+                                {sprintActual > 0 ? `${sprintActual.toFixed(1)}d` : '-'}
+                              </td>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    ) : (
+                      weekColumns.map(wc => {
+                        const weekTotal = localProjects.reduce((sum, p) => {
+                          const alloc = getWeeklyAllocation(p.id, wc.weekStartDate);
+                          return sum + (alloc?.plannedDays || 0);
+                        }, 0);
+
+                        return (
+                          <td key={`total-${wc.id}`} className="metadata-cell text-center">
+                            {weekTotal > 0 ? (
+                              <div className="font-semibold text-blue-700">
+                                {weekTotal.toFixed(1)}d
                               </div>
                             ) : (
                               '-'
                             )}
                           </td>
-                          {status === 'past' && (
-                            <td className="metadata-cell text-center text-green-700">
-                              {sprintActual > 0 ? `${sprintActual.toFixed(1)}d` : '-'}
-                            </td>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </tr>
                   {/* Unplanned Work Row - Only show for past sprints */}
                   <tr className="bg-blue-50 border-t border-gray-300">
@@ -765,28 +921,36 @@ export default function ExecutionTable({
                       Unplanned Work
                     </td>
                     <td className="metadata-cell" colSpan={10}></td>
-                    {sprints.map(sprint => {
-                      const status = getSprintStatus(sprint);
-                      const isPast = status === 'past';
-                      const capacity = getSprintCapacity(sprint.id);
+                    {viewMode === 'sprint' ? (
+                      sprints.map(sprint => {
+                        const status = getSprintStatus(sprint);
+                        const isPast = status === 'past';
+                        const capacity = getSprintCapacity(sprint.id);
 
-                      return (
-                        <React.Fragment key={`unplanned-${sprint.id}`}>
-                          <td className="metadata-cell" colSpan={isPast ? 2 : 1}>
-                            {isPast && team.linearTeamId ? (
-                              <UnplannedWorkIndicator
-                                sprint={sprint}
-                                teamId={team.linearTeamId}
-                                excludeProjectIds={localProjects.map(p => p.linearIssueId)}
-                                sprintCapacity={capacity.total}
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                        </React.Fragment>
-                      );
-                    })}
+                        return (
+                          <React.Fragment key={`unplanned-${sprint.id}`}>
+                            <td className="metadata-cell" colSpan={isPast ? 2 : 1}>
+                              {isPast && team.linearTeamId ? (
+                                <UnplannedWorkIndicator
+                                  sprint={sprint}
+                                  teamId={team.linearTeamId}
+                                  excludeProjectIds={localProjects.map(p => p.linearIssueId)}
+                                  sprintCapacity={capacity.total}
+                                />
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </td>
+                          </React.Fragment>
+                        );
+                      })
+                    ) : (
+                      weekColumns.map(wc => (
+                        <td key={`unplanned-${wc.id}`} className="metadata-cell">
+                          <span className="text-xs text-gray-400">-</span>
+                        </td>
+                      ))
+                    )}
                   </tr>
                 </>
               )}

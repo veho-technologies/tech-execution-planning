@@ -70,6 +70,7 @@ export interface SprintAllocation {
   id: number;
   projectId: string;
   sprintId: string;
+  weekStartDate?: string | null;
   plannedDays: number;
   actualDays: number;
   plannedDescription: string | null;

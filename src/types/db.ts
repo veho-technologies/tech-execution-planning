@@ -84,6 +84,7 @@ export interface SprintAllocations {
   sprintGoal: string | null;
   sprintId: string;
   updatedAt: Generated<Timestamp | null>;
+  weekStartDate: string | null;
 }
 
 export interface Sprints {
