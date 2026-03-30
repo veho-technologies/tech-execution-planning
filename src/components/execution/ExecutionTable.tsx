@@ -604,27 +604,30 @@ export default function ExecutionTable({
 
   const weekColumns: WeekColumn[] = viewMode === 'weekly'
     ? sprints.flatMap(sprint => {
-        const sprintStart = parseISO(sprint.startDate);
-        const week1End = addDays(sprintStart, 6);
-        const week2Start = addDays(sprintStart, 7);
-        const sprintEnd = parseISO(sprint.endDate);
+        // Use raw date strings (substring) to avoid timezone shift from parseISO
+        const w1Date = sprint.startDate.substring(0, 10); // "2026-03-30"
+        const w1 = parseISO(w1Date); // parse date-only = no TZ shift
+        const w2 = addDays(w1, 7);
+        const w2Date = format(w2, 'yyyy-MM-dd');
+        const w1EndDate = format(addDays(w1, 6), 'yyyy-MM-dd');
+        const endDate = sprint.endDate.substring(0, 10);
 
         return [
           {
             id: `${sprint.id}-w1`,
             sprint,
-            weekStartDate: format(sprintStart, 'yyyy-MM-dd'),
-            weekEndDate: format(week1End, 'yyyy-MM-dd'),
-            label: `W${getISOWeek(sprintStart)}`,
-            sublabel: format(sprintStart, 'M/d'),
+            weekStartDate: w1Date,
+            weekEndDate: w1EndDate,
+            label: `W${getISOWeek(w1)}`,
+            sublabel: format(w1, 'M/d'),
           },
           {
             id: `${sprint.id}-w2`,
             sprint,
-            weekStartDate: format(week2Start, 'yyyy-MM-dd'),
-            weekEndDate: format(sprintEnd, 'yyyy-MM-dd'),
-            label: `W${getISOWeek(week2Start)}`,
-            sublabel: format(week2Start, 'M/d'),
+            weekStartDate: w2Date,
+            weekEndDate: endDate,
+            label: `W${getISOWeek(w2)}`,
+            sublabel: format(w2, 'M/d'),
           },
         ];
       })
