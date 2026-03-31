@@ -1,0 +1,42 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: tech-execution-planning
+  description: Tech Execution Planning - comprehensive capacity planning and execution tracking with Linear integration
+  annotations:
+    github.com/project-slug: veho-technologies/tech-execution-planning
+    circleci.com/project-slug: github/veho-technologies/tech-execution-planning
+  links:
+    - url: http://localhost:3000
+      title: Local Development
+      icon: web
+  tags:
+    - typescript
+    - nextjs
+    - react
+    - postgresql
+    - capacity-planning
+    - linear-integration
+    - aws-cdk
+    - docker
+spec:
+  type: service
+  lifecycle: production
+  owner: developer-platform
+  dependsOn:
+    - resource:tech-execution-planning-postgres
+    - component:e2e-system-tests-cdk
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: tech-execution-planning-postgres
+  description: PostgreSQL database for capacity planning and execution tracking data
+  tags:
+    - database
+    - postgresql
+    - aws
+spec:
+  type: database
+  lifecycle: production
+  owner: developer-platform
